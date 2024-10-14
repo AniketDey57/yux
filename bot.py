@@ -1,8 +1,6 @@
 import os
 import re
 import shutil
-import subprocess
-import mimetypes
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
 from mutagen.mp4 import MP4, MP4StreamInfoError
@@ -57,20 +55,13 @@ async def download_handler(event):
                 for filename in files:
                     filepath = os.path.join(root, filename)
 
-                    # Check file extension
-                    if not filename.lower().endswith(('.mp3', '.flac', '.wav', '.m4a', '.mp4')):
-                        await event.reply(f"Skipping unsupported file format: {filename}")
-                        continue
-
                     try:
-                        # Check if the file is likely a valid MP4 before tagging
-                        if is_probable_mp4(filepath):
-                            tag_file(filepath)
-                            await client.send_file(event.chat_id, filepath)
-                        else:
-                            await event.reply(f"File {filename} is not a valid MP4.")
-                    except MutagenError as e:
-                        await event.reply(f"Error processing file {filename}: {str(e)}")
+                        # Attempt to tag the file regardless of its format
+                        tag_file(filepath)
+                        await client.send_file(event.chat_id, filepath)
+                    except Exception as e:
+                        # Log the error and continue with the next file
+                        print(f"Error processing {filename}: {str(e)}")
                         continue
 
             shutil.rmtree(download_dir)
@@ -80,22 +71,14 @@ async def download_handler(event):
     except Exception as e:
         await event.reply(f"An error occurred: {str(e)}")
 
-def is_probable_mp4(file_path):
-    try:
-        with open(file_path, 'rb') as f:
-            header = f.read(8)
-            return header.startswith(b'\x00\x00\x00\x18ftypmp42') or header.startswith(b'\x00\x00\x00\x18ftypisom')
-    except Exception as e:
-        print(f"Error checking file {file_path}: {str(e)}")
-        return False
-
 def tag_file(file_path):
     try:
+        # Attempt to read and tag the file using Mutagen
         tagger = MP4(file_path)
         tagger.save()
         print(f"Successfully tagged {file_path}")
     except MP4StreamInfoError:
-        print(f"Error: {file_path} is not a valid MP4 file.")
+        print(f"Warning: {file_path} is not a valid MP4 file. Skipping tagging.")
     except MutagenError as e:
         print(f"Error processing {file_path}: {str(e)}")
 
