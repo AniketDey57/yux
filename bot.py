@@ -54,44 +54,39 @@ async def download_handler(event):
             # Directory where the downloads are saved
             download_dir = f'downloads/{components[-1]}'
 
-            # Check if the directory exists before listing files
+            # Check if the directory exists before proceeding
             if not os.path.exists(download_dir):
                 await event.reply(f"Error: Download directory not found: {download_dir}")
                 return
 
-            # List all the downloaded files (either single track or multiple tracks from an album)
-            downloaded_files = os.listdir(download_dir)
+            # Use os.walk to recursively check all directories and subdirectories for files
+            for root, dirs, files in os.walk(download_dir):
+                for filename in files:
+                    filepath = os.path.join(root, filename)
 
-            for filename in downloaded_files:
-                filepath = f'{download_dir}/{filename}'
+                    # Only process files with supported audio extensions
+                    if not filename.lower().endswith(('.mp3', '.flac', '.wav', '.m4a')):
+                        await event.reply(f"Skipping unsupported file format: {filename}")
+                        continue
 
-                # Skip if the filepath is a directory
-                if os.path.isdir(filepath):
-                    continue
+                    try:
+                        # Extract metadata using mutagen
+                        audio = File(filepath, easy=True)
+                        artist = audio.get('artist', ['Unknown Artist'])[0]
+                        title = audio.get('title', ['Unknown Title'])[0]
 
-                # Only process files with supported audio extensions
-                if not filename.lower().endswith(('.mp3', '.flac', '.wav', '.m4a')):
-                    await event.reply(f"Skipping unsupported file format: {filename}")
-                    continue
+                        # Create the new filename based on artist and title
+                        new_filename = f"{artist} - {title}.flac"
+                        new_filepath = os.path.join(root, new_filename)
 
-                try:
-                    # Extract metadata using mutagen
-                    audio = File(filepath, easy=True)
-                    artist = audio.get('artist', ['Unknown Artist'])[0]
-                    title = audio.get('title', ['Unknown Title'])[0]
+                        # Convert the downloaded file to FLAC format using ffmpeg
+                        subprocess.run(['ffmpeg', '-i', filepath, new_filepath])
 
-                    # Create the new filename based on artist and title
-                    new_filename = f"{artist} - {title}.flac"
-                    new_filepath = f'{download_dir}/{new_filename}'
-
-                    # Convert the downloaded file to FLAC format using ffmpeg
-                    subprocess.run(['ffmpeg', '-i', filepath, new_filepath])
-
-                    # Send the FLAC file to the user
-                    await client.send_file(event.chat_id, new_filepath)
-                except MutagenError as e:
-                    await event.reply(f"Error processing file {filename}: {str(e)}")
-                    continue
+                        # Send the FLAC file to the user
+                        await client.send_file(event.chat_id, new_filepath)
+                    except MutagenError as e:
+                        await event.reply(f"Error processing file {filename}: {str(e)}")
+                        continue
 
             # Clean up the downloaded files after sending
             shutil.rmtree(download_dir)
