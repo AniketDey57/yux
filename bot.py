@@ -5,6 +5,8 @@ import subprocess
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
 from mutagen import File, MutagenError
+from mutagen.mp4 import MP4, MP4StreamInfoError
+import mimetypes
 
 # Set up your MTProto API credentials (API ID and hash from Telegram's Developer Portal)
 api_id = '8349121'
@@ -70,20 +72,11 @@ async def download_handler(event):
                         continue
 
                     try:
-                        # Extract metadata using mutagen
-                        audio = File(filepath, easy=True)
-                        artist = audio.get('artist', ['Unknown Artist'])[0]
-                        title = audio.get('title', ['Unknown Title'])[0]
+                        # Tagging the file by checking its type and embedding metadata
+                        tag_file(filepath)
 
-                        # Create the new filename based on artist and title
-                        new_filename = f"{artist} - {title}.flac"
-                        new_filepath = os.path.join(root, new_filename)
-
-                        # Convert the downloaded file to FLAC format using ffmpeg
-                        subprocess.run(['ffmpeg', '-i', filepath, new_filepath])
-
-                        # Send the FLAC file to the user
-                        await client.send_file(event.chat_id, new_filepath)
+                        # Send the processed audio file back to the user
+                        await client.send_file(event.chat_id, filepath)
                     except MutagenError as e:
                         await event.reply(f"Error processing file {filename}: {str(e)}")
                         continue
@@ -96,6 +89,34 @@ async def download_handler(event):
             await event.reply('Invalid track or album link.\nPlease enter a valid track or album link.')
     except Exception as e:
         await event.reply(f"An error occurred: {str(e)}")
+
+# Function to handle file tagging and embedding metadata
+def tag_file(file_path, cover_art=None):
+    try:
+        # Check if the file is an MP4 file by its MIME type
+        mime_type, _ = mimetypes.guess_type(file_path)
+
+        # Only proceed if the MIME type is 'video/mp4' or 'audio/mp4'
+        if mime_type in ['video/mp4', 'audio/mp4']:
+            # Attempt to tag the file using EasyMP4
+            tagger = MP4(file_path)
+
+            # Optionally embed cover art (if provided)
+            if cover_art:
+                with open(cover_art, 'rb') as cover:
+                    tagger['covr'] = [MP4Cover(cover.read())]
+            
+            tagger.save()
+
+            print(f"Successfully tagged {file_path}")
+
+        else:
+            print(f"Skipping file: {file_path} (not an MP4 file)")
+
+    except MP4StreamInfoError:
+        print(f"Error: {file_path} is not a valid MP4 file.")
+    except MutagenError as e:
+        print(f"Error processing {file_path}: {str(e)}")
 
 async def main():
     # Start the Telegram client
