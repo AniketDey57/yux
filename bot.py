@@ -1,88 +1,79 @@
 import os
 import re
 import shutil
+import subprocess
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
-from mutagen.mp4 import MP4, MP4StreamInfoError
-from mutagen import MutagenError
+from mutagen import File
 
-# Set up your MTProto API credentials
+# Set up your MTProto API credentials (API ID and hash from Telegram's Developer Portal)
 api_id = '8349121'
 api_hash = '9709d9b8c6c1aa3dd50107f97bb9aba6'
 session_name = 'beatport_downloader'
 
-track_pattern = '^https:\/\/www\.beatport\.com\/track\/[\w -]+\/\d+$'
-album_pattern = '^https:\/\/www\.beatport\.com\/release\/[\w -]+\/\d+$'
+# Regular expressions for Beatport and Crates.co URLs
+beatport_pattern = '^https:\/\/www\.beatport\.com\/track\/[\w -]+\/\d+$'
+crates_pattern = '^https:\/\/crates\.co\/track\/[\w -]+\/\d+$'
 
+# Initialize the client
 client = TelegramClient(session_name, api_id, api_hash)
 
+# Start the client and listen for new messages
 @client.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    await event.reply("Hi! I'm Beatport Downloader using MTProto API.\n\n"
+    await event.reply("Hi! I'm Beatport Track Downloader using MTProto API.\n\n"
                       "Commands:\n"
-                      "/download <track_url> - Download a track from Beatport.\n"
-                      "/download <album_url> - Download an album from Beatport.\n\n"
+                      "/download <track_url> - Download a track from Beatport or Crates.co.\n\n"
                       "Example:\n"
                       "/download https://www.beatport.com/track/take-me/17038421\n"
-                      "/download https://www.beatport.com/release/album-name/17038421")
+                      "/download https://crates.co/track/take-me/17038421")
 
 @client.on(events.NewMessage(pattern='/download'))
 async def download_handler(event):
-    try:
-        input_text = event.message.text.split(maxsplit=1)[1]
+    input_text = event.message.text.split(maxsplit=1)[1]
     
-        is_track = re.match(rf'{track_pattern}', input_text)
-        is_album = re.match(rf'{album_pattern}', input_text)
+    # Validate the track URL against Beatport and Crates.co patterns
+    is_beatport = re.match(rf'{beatport_pattern}', input_text)
+    is_crates = re.match(rf'{crates_pattern}', input_text)
 
-        if is_track or is_album:
-            await event.reply("Downloading and processing the audio... Please be patient.")
-            url = urlparse(input_text)
-            components = url.path.split('/')
+    if is_beatport or is_crates:
+        # Convert Crates.co link to Beatport link if necessary
+        if is_crates:
+            input_text = input_text.replace('crates.co', 'www.beatport.com')
 
-            download_status = os.system(f'python orpheus.py {input_text}')
+        await event.reply("Downloading and processing the audio file... Please be patient.")
+        url = urlparse(input_text)
+        components = url.path.split('/')
 
-            if download_status != 0:
-                await event.reply("Error: Download failed. Please check the URL or try again later.")
-                return
+        # Run the orpheus script to download the track
+        os.system(f'python orpheus.py {input_text}')
 
-            download_dir = f'downloads/{components[-1]}'
+        # Get the downloaded filename
+        filename = os.listdir(f'downloads/{components[-1]}')[0]
+        filepath = f'downloads/{components[-1]}/{filename}'
 
-            if not os.path.exists(download_dir):
-                await event.reply(f"Error: Download directory not found: {download_dir}")
-                return
+        # Extract metadata using mutagen
+        audio = File(filepath, easy=True)
+        artist = audio.get('artist', ['Unknown Artist'])[0]
+        title = audio.get('title', ['Unknown Title'])[0]
 
-            for root, dirs, files in os.walk(download_dir):
-                for filename in files:
-                    filepath = os.path.join(root, filename)
+        # Create the new filename based on artist and title
+        new_filename = f"{artist} - {title}.flac"
+        new_filepath = f'downloads/{components[-1]}/{new_filename}'
 
-                    try:
-                        # Attempt to tag the file regardless of its format
-                        tag_file(filepath)
-                        await client.send_file(event.chat_id, filepath)
-                    except Exception as e:
-                        # Log the error and continue with the next file
-                        print(f"Error processing {filename}: {str(e)}")
-                        continue
+        # Convert the downloaded file to FLAC format using ffmpeg
+        subprocess.run(['ffmpeg', '-i', filepath, new_filepath])
 
-            shutil.rmtree(download_dir)
-            await event.reply("Album or track download completed.")
-        else:
-            await event.reply('Invalid track or album link.\nPlease enter a valid track or album link.')
-    except Exception as e:
-        await event.reply(f"An error occurred: {str(e)}")
+        # Send the renamed FLAC file to the user
+        await client.send_file(event.chat_id, new_filepath)
 
-def tag_file(file_path):
-    try:
-        # Attempt to read and tag the file using Mutagen
-        tagger = MP4(file_path)
-        tagger.save()
-        print(f"Successfully tagged {file_path}")
-    except MP4StreamInfoError:
-        print(f"Warning: {file_path} is not a valid MP4 file. Skipping tagging.")
-    except MutagenError as e:
-        print(f"Error processing {file_path}: {str(e)}")
+        # Clean up the downloaded files
+        shutil.rmtree(f'downloads/{components[-1]}')
+    else:
+        await event.reply('Invalid track link.\nPlease enter a valid track link.')
 
 async def main():
+    # Start the Telegram client
     async with client:
         print("Client is running...")
         await client.run_until_disconnected()
