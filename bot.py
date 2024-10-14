@@ -8,7 +8,7 @@ import subprocess
 
 pattern = '^https:\/\/www\.beatport\.com\/track\/[\w -]+\/\d+$'
 
-API_TOKEN = 'YOUR_BOT_TOKEN'
+API_TOKEN = '6396315969:AAGOob69X_w6tMXy2zuS1hsp5PCHjvavot8'
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
