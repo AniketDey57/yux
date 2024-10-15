@@ -2,7 +2,6 @@ import os
 import shutil
 import logging
 import re
-import zipfile
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
 
@@ -73,25 +72,21 @@ async def download_album(input_text, event):
     # Download all tracks in the album (orpheus.py should support album downloading)
     os.system(f'python orpheus.py {input_text}')
     
-    # Create a ZIP file from the downloaded album folder
+    # Get the album folder
     album_id = components[-1]
     album_folder = f'downloads/{album_id}'
-    zip_filename = f'{album_id}.zip'
-    zip_path = f'downloads/{zip_filename}'
     
-    # Compress the album folder
-    with zipfile.ZipFile(zip_path, 'w') as album_zip:
-        for folder_name, subfolders, filenames in os.walk(album_folder):
-            for filename in filenames:
-                file_path = os.path.join(folder_name, filename)
-                album_zip.write(file_path, os.path.relpath(file_path, album_folder))
+    # Check if album folder exists and send each track individually
+    if os.path.exists(album_folder):
+        track_files = os.listdir(album_folder)
+        for track in track_files:
+            track_path = os.path.join(album_folder, track)
+            # Send each track one by one
+            await client.send_file(event.chat_id, track_path)
+            await event.respond(f"📤 Sent track: {track}")
     
-    # Send the ZIP file to the user
-    await client.send_file(event.chat_id, zip_path)
-    
-    # Cleanup the downloaded album folder and ZIP file
+    # Cleanup the downloaded album folder after sending the files
     shutil.rmtree(album_folder)
-    os.remove(zip_path)
 
 
 async def main():
