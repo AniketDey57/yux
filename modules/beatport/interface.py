@@ -319,7 +319,7 @@ class ModuleInterface:
 
         extra_tags = {}
         if track_data.get('bpm'):
-            extra_tags['BPM'] = track_data.get('bpm')
+            extra_tags['BPM'] = str(track_data.get('bpm'))
         if track_data.get('key'):
             extra_tags['Key'] = track_data.get('key').get('name')
 
