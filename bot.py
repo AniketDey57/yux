@@ -7,8 +7,8 @@ from telethon import TelegramClient, events
 from mutagen import File
 
 # Set up your MTProto API credentials (API ID and hash from Telegram's Developer Portal)
-api_id = '10074048'
-api_hash = 'a08b1ed3365fa3b04bcf2bcbf71aff4d'
+api_id = '3555648'
+api_hash = 'a08b1rd3365ha3b04bcj2bcbf71afgdf4d'
 session_name = 'beatport_downloader'
 
 # Regular expressions for Beatport and Crates.co URLs
