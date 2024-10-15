@@ -53,19 +53,19 @@ async def download_handler(event):
             await event.reply("Download directory does not exist. Please check the download process.")
             return
         
-        # List all the downloaded files (either single track or multiple tracks from an album)
-        downloaded_files = os.listdir(download_dir)
-
-        # Check for files in the album directory
-        audio_files = [file for file in downloaded_files if os.path.isfile(os.path.join(download_dir, file))]
+        # Traverse album directory and find all audio files
+        audio_files = []
+        for root, dirs, files in os.walk(download_dir):
+            for file in files:
+                # You can extend this to filter for specific audio file extensions like .mp3, .wav, etc.
+                if file.lower().endswith(('.mp3', '.flac', '.wav')):
+                    audio_files.append(os.path.join(root, file))
 
         if not audio_files:
             await event.reply("No audio files found in the album directory.")
             return
 
-        for filename in audio_files:
-            filepath = os.path.join(download_dir, filename)
-
+        for filepath in audio_files:
             try:
                 # Extract metadata using mutagen
                 audio = File(filepath, easy=True)
@@ -74,7 +74,7 @@ async def download_handler(event):
 
                 # Create the new filename based on artist and title
                 new_filename = f"{artist} - {title}.flac"
-                new_filepath = os.path.join(download_dir, new_filename)
+                new_filepath = os.path.join(os.path.dirname(filepath), new_filename)
 
                 # Convert the downloaded file to FLAC format using ffmpeg
                 subprocess.run(['ffmpeg', '-i', filepath, new_filepath], check=True)
@@ -82,7 +82,7 @@ async def download_handler(event):
                 # Send the FLAC file to the user
                 await client.send_file(event.chat_id, new_filepath)
             except Exception as e:
-                await event.reply(f"An error occurred while processing {filename}: {str(e)}")
+                await event.reply(f"An error occurred while processing {os.path.basename(filepath)}: {str(e)}")
 
         # Clean up the downloaded files after sending
         shutil.rmtree(download_dir)
