@@ -48,26 +48,41 @@ async def download_handler(event):
         # Directory where the downloads are saved
         download_dir = f'downloads/{components[-1]}'
         
+        # Check if the download directory exists
+        if not os.path.exists(download_dir):
+            await event.reply("Download directory does not exist. Please check the download process.")
+            return
+        
         # List all the downloaded files (either single track or multiple tracks from an album)
         downloaded_files = os.listdir(download_dir)
 
-        for filename in downloaded_files:
-            filepath = f'{download_dir}/{filename}'
+        # Check for files in the album directory
+        audio_files = [file for file in downloaded_files if os.path.isfile(os.path.join(download_dir, file))]
 
-            # Extract metadata using mutagen
-            audio = File(filepath, easy=True)
-            artist = audio.get('artist', ['Unknown Artist'])[0]
-            title = audio.get('title', ['Unknown Title'])[0]
+        if not audio_files:
+            await event.reply("No audio files found in the album directory.")
+            return
 
-            # Create the new filename based on artist and title
-            new_filename = f"{artist} - {title}.flac"
-            new_filepath = f'{download_dir}/{new_filename}'
+        for filename in audio_files:
+            filepath = os.path.join(download_dir, filename)
 
-            # Convert the downloaded file to FLAC format using ffmpeg
-            subprocess.run(['ffmpeg', '-i', filepath, new_filepath])
+            try:
+                # Extract metadata using mutagen
+                audio = File(filepath, easy=True)
+                artist = audio.get('artist', ['Unknown Artist'])[0]
+                title = audio.get('title', ['Unknown Title'])[0]
 
-            # Send the FLAC file to the user
-            await client.send_file(event.chat_id, new_filepath)
+                # Create the new filename based on artist and title
+                new_filename = f"{artist} - {title}.flac"
+                new_filepath = os.path.join(download_dir, new_filename)
+
+                # Convert the downloaded file to FLAC format using ffmpeg
+                subprocess.run(['ffmpeg', '-i', filepath, new_filepath], check=True)
+
+                # Send the FLAC file to the user
+                await client.send_file(event.chat_id, new_filepath)
+            except Exception as e:
+                await event.reply(f"An error occurred while processing {filename}: {str(e)}")
 
         # Clean up the downloaded files after sending
         shutil.rmtree(download_dir)
