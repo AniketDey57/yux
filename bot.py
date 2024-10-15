@@ -80,12 +80,14 @@ async def download_handler(event):
                 # Rename the file to include artist and title in the filename
                 os.rename(filepath, new_filepath)
 
-                # Update the metadata to include all artists in the artist field
+                # Send the original file to the user
+                await client.send_file(event.chat_id, new_filepath)
+
+                # Update the metadata to include all artists in the artist field before cleaning up
+                audio = File(new_filepath, easy=True)  # Reopen the renamed file
                 audio['artist'] = artists
                 audio.save()
 
-                # Send the original file to the user
-                await client.send_file(event.chat_id, new_filepath)
             except Exception as e:
                 await event.reply(f"An error occurred while processing {os.path.basename(filepath)}: {str(e)}")
 
