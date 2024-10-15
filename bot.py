@@ -3,7 +3,7 @@ import re
 import shutil
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
-from mutagen import File
+from mutagen import File, id3
 
 # Set up your MTProto API credentials (API ID and hash from Telegram's Developer Portal)
 api_id = '10074048'
@@ -79,6 +79,10 @@ async def download_handler(event):
 
                 # Rename the file to include artist and title in the filename
                 os.rename(filepath, new_filepath)
+
+                # Update the metadata to include all artists in the artist field
+                audio['artist'] = artists
+                audio.save()
 
                 # Send the original file to the user
                 await client.send_file(event.chat_id, new_filepath)
