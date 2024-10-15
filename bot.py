@@ -57,7 +57,6 @@ async def download_handler(event):
         audio_files = []
         for root, dirs, files in os.walk(download_dir):
             for file in files:
-                # You can extend this to filter for specific audio file extensions like .mp3, .wav, etc.
                 if file.lower().endswith(('.mp3', '.flac', '.wav')):
                     audio_files.append(os.path.join(root, file))
 
@@ -69,11 +68,13 @@ async def download_handler(event):
             try:
                 # Extract metadata using mutagen
                 audio = File(filepath, easy=True)
-                artist = audio.get('artist', ['Unknown Artist'])[0]
+
+                # Change this line to replace ';' with ', ' in artist names
+                artists = audio.get('artist', ['Unknown Artist'])[0].replace(';', ', ')
                 title = audio.get('title', ['Unknown Title'])[0]
 
                 # Create the new filename based on artist and title
-                new_filename = f"{artist} - {title}.flac"
+                new_filename = f"{artists} - {title}.flac"
                 new_filepath = os.path.join(os.path.dirname(filepath), new_filename)
 
                 # Convert the downloaded file to FLAC format using ffmpeg
