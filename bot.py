@@ -80,3 +80,5 @@ async def main():
 
 if __name__ == '__main__':
     client.loop.run_until_complete(main())
+
+can you add a feature like downloading albums also which contains more than one track which is downloaded inside the directory
