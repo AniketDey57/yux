@@ -56,7 +56,7 @@ async def download_handler(event):
         audio_files = []
         for root, dirs, files in os.walk(download_dir):
             for file in files:
-                # Filter for audio files with specific extensions like .mp3, .flac, .wav
+                # You can extend this to filter for specific audio file extensions like .mp3, .wav, etc.
                 if file.lower().endswith(('.mp3', '.flac', '.wav')):
                     audio_files.append(os.path.join(root, file))
 
@@ -66,19 +66,18 @@ async def download_handler(event):
 
         for filepath in audio_files:
             try:
-                # Extract metadata using mutagen
+                # Extract metadata using mutagen to create a nice filename
                 audio = File(filepath, easy=True)
-                # Extract all artists as a comma-separated string
-                artist_list = audio.get('artist', ['Unknown Artist'])
-                all_artists = ', '.join(artist_list)  # Concatenate artists with a comma
-
+                
+                # Join all artist names instead of just taking the first one
+                artists = ', '.join(audio.get('artist', ['Unknown Artist']))
                 title = audio.get('title', ['Unknown Title'])[0]
 
-                # Create the new filename based on all artists and title
-                new_filename = f"{all_artists} - {title}{os.path.splitext(filepath)[1]}"
+                # Create the new filename based on artist(s) and title
+                new_filename = f"{artists} - {title}{os.path.splitext(filepath)[1]}"
                 new_filepath = os.path.join(os.path.dirname(filepath), new_filename)
 
-                # Rename the file to include all artist names and the title
+                # Rename the file to include artist and title in the filename
                 os.rename(filepath, new_filepath)
 
                 # Send the original file to the user
